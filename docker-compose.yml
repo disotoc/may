@@ -1,20 +1,40 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: may_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-may_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-may_password}
+      POSTGRES_DB: ${POSTGRES_DB:-may}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   may:
-    image: ghcr.io/dannymcc/may:latest
+    # image: ghcr.io/dannymcc/may:latest
     # To build locally instead, comment out 'image' above and uncomment:
-    # build: .
+    build: .
     container_name: may
     restart: unless-stopped
     ports:
       - "5050:5050"
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - may_data:/app/data
     environment:
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - DATABASE_URL=sqlite:////app/data/may.db
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-may_user}:${POSTGRES_PASSWORD:-may_password}@db:5432/${POSTGRES_DB:-may}
       - UPLOAD_FOLDER=/app/data/uploads
       # Optional: set a fixed admin password (default is auto-generated and shown in logs)
       # - ADMIN_PASSWORD=your-secure-password
 
 volumes:
   may_data:
+  pgdata:

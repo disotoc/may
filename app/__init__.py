@@ -101,7 +101,13 @@ def _bootstrap_alembic_version(app):
     user_cols = {c['name'] for c in inspector.get_columns('users')}
     vehicle_cols = {c['name'] for c in inspector.get_columns('vehicles')}
 
-    if 'trip_templates' in table_names:
+    if 'is_shared' in vehicle_cols:
+        target = '42b26bf6d488'
+    elif 'annual_mileage_limit' in vehicle_cols:
+        target = 'f1a2b3c4d5e6'
+    elif 'secondary_fuel_type' in vehicle_cols:
+        target = 'ee92897cc33b'
+    elif 'trip_templates' in table_names:
         target = 'b2c3d4e5f6a7'
     elif 'default_vehicle_id' in user_cols:
         target = 'a1b2c3d4e5f6'
@@ -274,7 +280,9 @@ def create_app(config_class=Config):
     app.config['BABEL_SUPPORTED_LOCALES'] = list(LANGUAGES.keys())
 
     # Ensure data directories exist
-    os.makedirs(os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')), exist_ok=True)
+    db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    if db_uri.startswith('sqlite:///'):
+        os.makedirs(os.path.dirname(db_uri.replace('sqlite:///', '')), exist_ok=True)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     db.init_app(app)
