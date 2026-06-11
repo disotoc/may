@@ -247,6 +247,17 @@ curl -H "Authorization: Bearer may_your_api_key" \
 
 See the API documentation at `/api/docs` when logged in.
 
+### Android App (MVP)
+
+This fork includes a native Android MVP in `android/` for personal use with a self-hosted May instance. It connects with the existing API key flow and currently supports vehicles, fuel logs, expenses, and categories.
+
+1. In May, log in on the web and generate an API key from Settings > Integrations / API.
+2. Open `android/` in Android Studio.
+3. Build and run the `app` module on a device or emulator.
+4. Enter your May URL, for example `http://100.120.183.123:5050`, and paste the generated `may_...` token.
+
+The Android app sends `Authorization: Bearer may_your_api_key` to `/api/v1/*`. Because this MVP is intended for a private self-hosted/Tailscale deployment, it allows cleartext HTTP; use HTTPS before exposing May outside a private network.
+
 ## 🔗 Integrations
 
 ### Home Assistant

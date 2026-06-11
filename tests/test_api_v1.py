@@ -28,6 +28,36 @@ class TestApiKeyAuth:
         assert resp.status_code == 200
 
 
+class TestV1Bootstrap:
+    def test_get_me(self, client, api_headers, test_user):
+        resp = client.get('/api/v1/me', headers=api_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['username'] == test_user.username
+        assert data['preferences']['currency'] == test_user.currency
+        assert data['preferences']['distance_unit'] == test_user.distance_unit
+
+    def test_get_me_requires_api_key(self, client):
+        resp = client.get('/api/v1/me')
+        assert resp.status_code == 401
+
+    def test_get_summary_empty(self, client, api_headers):
+        resp = client.get('/api/v1/summary', headers=api_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['vehicle_count'] == 0
+        assert data['total_cost'] == 0
+
+    def test_get_summary_with_vehicle_data(self, client, api_headers, sample_vehicle, sample_fuel_log, sample_expense):
+        resp = client.get('/api/v1/summary', headers=api_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['vehicle_count'] == 1
+        assert data['total_fuel_cost'] == sample_fuel_log.total_cost
+        assert data['total_expense_cost'] == sample_expense.cost
+        assert data['currency'] == 'GBP'
+
+
 class TestV1Vehicles:
     def test_list_vehicles_empty(self, client, api_headers):
         resp = client.get('/api/v1/vehicles', headers=api_headers)
@@ -200,6 +230,23 @@ class TestV1FuelLogs:
         assert data['odometer'] == 11000.0
         assert 'id' in data
 
+    def test_create_fuel_log_allows_zero_values(self, client, api_headers, sample_vehicle):
+        resp = client.post(
+            f'/api/v1/vehicles/{sample_vehicle.id}/fuel',
+            json={
+                'date': '2024-02-01',
+                'odometer': 0,
+                'volume': 0,
+                'price_per_unit': 1.55,
+            },
+            headers=api_headers
+        )
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data['odometer'] == 0.0
+        assert data['volume'] == 0.0
+        assert data['total_cost'] == 0.0
+
     def test_create_fuel_log_missing_date(self, client, api_headers, sample_vehicle):
         resp = client.post(
             f'/api/v1/vehicles/{sample_vehicle.id}/fuel',
@@ -314,6 +361,23 @@ class TestV1Expenses:
         data = resp.get_json()
         assert data['description'] == 'Tyre change'
         assert 'id' in data
+
+    def test_create_expense_allows_zero_cost_and_odometer(self, client, api_headers, sample_vehicle):
+        resp = client.post(
+            f'/api/v1/vehicles/{sample_vehicle.id}/expenses',
+            json={
+                'date': '2024-03-01',
+                'category': 'maintenance',
+                'description': 'Warranty service',
+                'cost': 0,
+                'odometer': 0,
+            },
+            headers=api_headers
+        )
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data['cost'] == 0.0
+        assert data['odometer'] == 0.0
 
     def test_create_expense_missing_required(self, client, api_headers, sample_vehicle):
         resp = client.post(

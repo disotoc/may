@@ -10,6 +10,7 @@ import traceback
 import zipfile
 from functools import wraps
 from datetime import datetime
+from sqlalchemy import func
 from flask import Blueprint, jsonify, request, send_from_directory, current_app, url_for, render_template, Response, flash, redirect, session
 from flask_login import login_required, current_user
 from app import db
@@ -75,6 +76,12 @@ def api_auth_required(f):
 def get_api_user():
     """Get the authenticated API user"""
     return getattr(request, 'api_user', None)
+
+
+def _optional_float(data, field):
+    if field not in data or data[field] in (None, ''):
+        return None
+    return float(data[field])
 
 
 # =============================================================================
@@ -313,6 +320,69 @@ def last_odometer(vehicle_id):
 
 
 # =============================================================================
+# Public API v1 - Mobile bootstrap
+# =============================================================================
+
+@bp.route('/v1/me', methods=['GET'])
+@api_auth_required
+def api_get_me():
+    """Return the authenticated API user and preferences."""
+    user = get_api_user()
+    return jsonify({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'is_admin': user.is_admin,
+        'preferences': {
+            'language': user.language,
+            'distance_unit': user.distance_unit,
+            'volume_unit': user.volume_unit,
+            'consumption_unit': user.consumption_unit,
+            'currency': user.currency,
+            'date_format': user.date_format,
+            'default_vehicle_id': user.default_vehicle_id,
+        },
+    })
+
+
+@bp.route('/v1/summary', methods=['GET'])
+@api_auth_required
+def api_get_summary():
+    """Return a lightweight account summary for mobile dashboards."""
+    user = get_api_user()
+    vehicles = user.get_all_vehicles()
+    vehicle_ids = [v.id for v in vehicles]
+
+    total_fuel_cost = 0
+    total_expense_cost = 0
+    total_charging_cost = 0
+    total_distance = 0
+
+    if vehicle_ids:
+        total_fuel_cost = db.session.query(func.sum(FuelLog.total_cost)).filter(
+            FuelLog.vehicle_id.in_(vehicle_ids)
+        ).scalar() or 0
+        total_expense_cost = db.session.query(func.sum(Expense.cost)).filter(
+            Expense.vehicle_id.in_(vehicle_ids)
+        ).scalar() or 0
+        total_charging_cost = db.session.query(func.sum(ChargingSession.total_cost)).filter(
+            ChargingSession.vehicle_id.in_(vehicle_ids)
+        ).scalar() or 0
+        total_distance = sum(v.get_total_distance(user.distance_unit) for v in vehicles)
+
+    return jsonify({
+        'vehicle_count': len(vehicles),
+        'total_fuel_cost': round(float(total_fuel_cost), 2),
+        'total_expense_cost': round(float(total_expense_cost), 2),
+        'total_charging_cost': round(float(total_charging_cost), 2),
+        'total_cost': round(float(total_fuel_cost + total_expense_cost + total_charging_cost), 2),
+        'total_distance': round(float(total_distance), 2),
+        'distance_unit': user.distance_unit,
+        'currency': user.currency,
+    })
+
+
+# =============================================================================
 # Public API v1 - Vehicles
 # =============================================================================
 
@@ -522,7 +592,7 @@ def api_create_fuel_log(vehicle_id):
     if not data.get('date'):
         return jsonify({'error': 'date is required (YYYY-MM-DD)', 'code': 'validation_error'}), 400
 
-    if not data.get('odometer'):
+    if data.get('odometer') is None:
         return jsonify({'error': 'odometer is required', 'code': 'validation_error'}), 400
 
     try:
@@ -530,14 +600,22 @@ def api_create_fuel_log(vehicle_id):
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD', 'code': 'validation_error'}), 400
 
+    try:
+        odometer = float(data['odometer'])
+        volume = _optional_float(data, 'volume')
+        price_per_unit = _optional_float(data, 'price_per_unit')
+        total_cost = _optional_float(data, 'total_cost')
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Numeric fields must be valid numbers', 'code': 'validation_error'}), 400
+
     log = FuelLog(
         vehicle_id=vehicle_id,
         user_id=user.id,
         date=date,
-        odometer=float(data['odometer']),
-        volume=float(data['volume']) if data.get('volume') else None,
-        price_per_unit=float(data['price_per_unit']) if data.get('price_per_unit') else None,
-        total_cost=float(data['total_cost']) if data.get('total_cost') else None,
+        odometer=odometer,
+        volume=volume,
+        price_per_unit=price_per_unit,
+        total_cost=total_cost,
         is_full_tank=data.get('is_full_tank', True),
         is_missed=data.get('is_missed', False),
         station=data.get('station'),
@@ -545,7 +623,7 @@ def api_create_fuel_log(vehicle_id):
     )
 
     # Auto-calculate total cost if not provided
-    if log.volume and log.price_per_unit and not log.total_cost:
+    if log.volume is not None and log.price_per_unit is not None and log.total_cost is None:
         log.total_cost = round(log.volume * log.price_per_unit, 2)
 
     db.session.add(log)
@@ -587,14 +665,17 @@ def api_update_fuel_log(log_id):
         except ValueError:
             return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD', 'code': 'validation_error'}), 400
 
-    if 'odometer' in data:
-        log.odometer = float(data['odometer'])
-    if 'volume' in data:
-        log.volume = float(data['volume']) if data['volume'] else None
-    if 'price_per_unit' in data:
-        log.price_per_unit = float(data['price_per_unit']) if data['price_per_unit'] else None
-    if 'total_cost' in data:
-        log.total_cost = float(data['total_cost']) if data['total_cost'] else None
+    try:
+        if 'odometer' in data:
+            log.odometer = float(data['odometer'])
+        if 'volume' in data:
+            log.volume = _optional_float(data, 'volume')
+        if 'price_per_unit' in data:
+            log.price_per_unit = _optional_float(data, 'price_per_unit')
+        if 'total_cost' in data:
+            log.total_cost = _optional_float(data, 'total_cost')
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Numeric fields must be valid numbers', 'code': 'validation_error'}), 400
     if 'is_full_tank' in data:
         log.is_full_tank = data['is_full_tank']
     if 'is_missed' in data:
@@ -691,10 +772,11 @@ def api_create_expense(vehicle_id):
     if not data:
         return jsonify({'error': 'JSON body required', 'code': 'invalid_request'}), 400
 
-    required = ['date', 'category', 'description', 'cost']
-    for field in required:
+    for field in ['date', 'category', 'description']:
         if not data.get(field):
             return jsonify({'error': f'{field} is required', 'code': 'validation_error'}), 400
+    if data.get('cost') is None:
+        return jsonify({'error': 'cost is required', 'code': 'validation_error'}), 400
 
     valid_categories = [c[0] for c in EXPENSE_CATEGORIES]
     if data['category'] not in valid_categories:
@@ -708,14 +790,20 @@ def api_create_expense(vehicle_id):
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD', 'code': 'validation_error'}), 400
 
+    try:
+        cost = float(data['cost'])
+        odometer = _optional_float(data, 'odometer')
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Numeric fields must be valid numbers', 'code': 'validation_error'}), 400
+
     expense = Expense(
         vehicle_id=vehicle_id,
         user_id=user.id,
         date=date,
         category=data['category'],
         description=data['description'],
-        cost=float(data['cost']),
-        odometer=float(data['odometer']) if data.get('odometer') else None,
+        cost=cost,
+        odometer=odometer,
         vendor=data.get('vendor'),
         notes=data.get('notes')
     )
@@ -770,10 +858,13 @@ def api_update_expense(expense_id):
 
     if 'description' in data:
         expense.description = data['description']
-    if 'cost' in data:
-        expense.cost = float(data['cost'])
-    if 'odometer' in data:
-        expense.odometer = float(data['odometer']) if data['odometer'] else None
+    try:
+        if 'cost' in data:
+            expense.cost = float(data['cost'])
+        if 'odometer' in data:
+            expense.odometer = _optional_float(data, 'odometer')
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Numeric fields must be valid numbers', 'code': 'validation_error'}), 400
     if 'vendor' in data:
         expense.vendor = data['vendor']
     if 'notes' in data:
