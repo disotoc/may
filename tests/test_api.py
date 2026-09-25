@@ -134,3 +134,102 @@ class TestProcessReminders:
     def test_process_reminders_unauthorized(self, client):
         resp = client.post('/api/reminders/process')
         assert resp.status_code == 401
+
+
+class TestNtfyAuthentication:
+    def test_send_ntfy_uses_basic_auth(self, monkeypatch):
+        from app.services import notifications
+        from app.services.notifications import NotificationService
+
+        captured = {}
+
+        class DummyResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        def fake_urlopen(req, timeout=10):
+            captured['headers'] = dict(req.header_items())
+            captured['timeout'] = timeout
+            return DummyResponse()
+
+        monkeypatch.setattr(notifications, 'urlopen', fake_urlopen)
+
+        success, error = NotificationService.send_ntfy(
+            'https://ntfy.example.com/may',
+            'Title',
+            'Message',
+            username='disocu',
+            password='secret',
+        )
+
+        assert success is True
+        assert error is None
+        assert captured['headers']['Authorization'] == 'Basic ZGlzb2N1OnNlY3JldA=='
+
+    def test_send_ntfy_uses_bearer_token(self, monkeypatch):
+        from app.services import notifications
+        from app.services.notifications import NotificationService
+
+        captured = {}
+
+        class DummyResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        def fake_urlopen(req, timeout=10):
+            captured['headers'] = dict(req.header_items())
+            return DummyResponse()
+
+        monkeypatch.setattr(notifications, 'urlopen', fake_urlopen)
+
+        success, error = NotificationService.send_ntfy(
+            'https://ntfy.example.com/may',
+            'Title',
+            'Message',
+            username='disocu',
+            password='secret',
+            token='tk_test',
+        )
+
+        assert success is True
+        assert error is None
+        assert captured['headers']['Authorization'] == 'Bearer tk_test'
+
+    def test_test_notification_passes_ntfy_auth_values(self, auth_client, monkeypatch):
+        from app.services.notifications import NotificationService
+
+        captured = {}
+
+        def fake_send_ntfy(topic, title, message, priority='default', username=None, password=None, token=None):
+            captured.update({
+                'topic': topic,
+                'username': username,
+                'password': password,
+                'token': token,
+            })
+            return True, None
+
+        monkeypatch.setattr(NotificationService, 'send_ntfy', fake_send_ntfy)
+
+        resp = auth_client.post('/api/notifications/test', data={
+            'notification_method': 'ntfy',
+            'ntfy_topic': 'https://ntfy.example.com/may',
+            'ntfy_username': 'disocu',
+            'ntfy_password': 'secret',
+            'ntfy_token': '',
+        })
+
+        assert resp.status_code == 200
+        assert resp.get_json()['success'] is True
+        assert captured == {
+            'topic': 'https://ntfy.example.com/may',
+            'username': 'disocu',
+            'password': 'secret',
+            'token': None,
+        }

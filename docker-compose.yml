@@ -28,6 +28,9 @@ services:
         condition: service_healthy
     volumes:
       - may_data:/app/data
+    networks:
+      - default
+      - ntfy_default
     environment:
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-may_user}:${POSTGRES_PASSWORD:-may_password}@db:5432/${POSTGRES_DB:-may}
@@ -38,3 +41,8 @@ services:
 volumes:
   may_data:
   pgdata:
+
+networks:
+  ntfy_default:
+    external: true
+    name: ntfy_default

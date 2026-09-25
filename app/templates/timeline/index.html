@@ -71,7 +71,7 @@
                             <div class="whitespace-nowrap text-right">
                                 <time class="text-sm text-gray-500 dark:text-gray-400">{{ event.date|format_date }}</time>
                                 {% if event.cost %}
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ "%.2f"|format(event.cost) }} {{ current_user.currency }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ event.cost|format_currency }} {{ current_user.currency }}</p>
                                 {% endif %}
                             </div>
                         </div>

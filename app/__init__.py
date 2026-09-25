@@ -332,6 +332,16 @@ def create_app(config_class=Config):
         fmt = formats.get(style, formats['default'])
         return value.strftime(fmt)
 
+    @app.template_filter('format_currency')
+    def format_currency_filter(value, user=None, currency=None):
+        from app.models import format_currency_amount
+        selected_currency = currency
+        if selected_currency is None and user is not None:
+            selected_currency = getattr(user, 'currency', None)
+        if selected_currency is None and current_user and current_user.is_authenticated:
+            selected_currency = getattr(current_user, 'currency', None)
+        return format_currency_amount(value, selected_currency)
+
     from app.routes import main, auth, vehicles, fuel, expenses, api, reminders, maintenance, documents, stations, recurring, homeassistant, calendar, trips, charging
     app.register_blueprint(main.bp)
     app.register_blueprint(auth.bp)

@@ -329,6 +329,9 @@ def notifications():
     current_user.notification_method = request.form.get('notification_method', 'email')
     current_user.webhook_url = webhook_url
     current_user.ntfy_topic = request.form.get('ntfy_topic') or None
+    current_user.ntfy_username = request.form.get('ntfy_username') or None
+    current_user.ntfy_password = request.form.get('ntfy_password') or None
+    current_user.ntfy_token = request.form.get('ntfy_token') or None
     current_user.pushover_user_key = request.form.get('pushover_user_key') or None
     db.session.commit()
     flash(_('Notification preferences updated'), 'success')

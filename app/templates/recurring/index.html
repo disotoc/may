@@ -56,7 +56,7 @@
                 <div class="ml-4 flex items-center gap-4">
                     {% if item.amount %}
                     <div class="text-right">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ item.vehicle.currency_symbol }}{{ "%.2f"|format(item.amount) }}</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ item.vehicle.currency_symbol }}{{ item.amount|format_currency(item.vehicle.owner) }}</p>
                     </div>
                     {% endif %}
                     {% if item.next_due %}

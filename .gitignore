@@ -25,6 +25,7 @@ data/
 .vscode/
 *.swp
 *.swo
+.atl/
 
 # OS
 .DS_Store

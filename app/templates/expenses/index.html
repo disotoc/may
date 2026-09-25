@@ -55,7 +55,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {% if expense.odometer %}{{ expense.odometer|int }} {{ expense.vehicle.get_effective_odometer_unit() }}{% else %}-{% endif %}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ "%.2f"|format(expense.cost) }} {{ current_user.currency }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ expense.cost|format_currency }} {{ current_user.currency }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onclick="event.stopPropagation()">
                         <a href="{{ url_for('expenses.edit', expense_id=expense.id) }}" class="text-primary-600 hover:text-primary-900 mr-3">Edit</a>
                         <form method="POST" action="{{ url_for('expenses.delete', expense_id=expense.id) }}" class="inline"

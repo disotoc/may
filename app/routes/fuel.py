@@ -13,11 +13,49 @@ from app.services.tessie import TessieService
 bp = Blueprint('fuel', __name__, url_prefix='/fuel')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
+STANDARD_PRICE_LIMIT_CURRENCIES = {
+    'AUD', 'BRL', 'CAD', 'CHF', 'DKK', 'EUR', 'GBP', 'MXN', 'NOK', 'NZD',
+    'PLN', 'SEK', 'USD', 'ZAR',
+}
 
 
 def allowed_file(filename):
     """Legacy function - use validate_file_upload for new code"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def render_fuel_form(log=None, vehicles=None, selected_vehicle_id=None):
+    vehicles = vehicles if vehicles is not None else current_user.get_all_vehicles()
+    if selected_vehicle_id is None:
+        selected_vehicle_id = log.vehicle_id if log else current_user.default_vehicle_id
+
+    stations = FuelStation.query.order_by(
+        FuelStation.is_favorite.desc(),
+        FuelStation.times_used.desc()
+    ).all()
+
+    return render_template('fuel/form.html',
+                           log=log,
+                           vehicles=vehicles,
+                           stations=stations,
+                           fuel_types=FUEL_TYPES,
+                           selected_vehicle_id=selected_vehicle_id)
+
+
+def uses_standard_price_limit(user):
+    return (user.currency or '').upper() in STANDARD_PRICE_LIMIT_CURRENCIES
+
+
+def price_per_unit_max_for_user(user):
+    if uses_standard_price_limit(user):
+        return 1000
+    return 100000
+
+
+def total_cost_max_for_user(user):
+    if uses_standard_price_limit(user):
+        return 100000
+    return 10000000
 
 
 @bp.route('/')
@@ -68,22 +106,30 @@ def new():
         odometer, err = validate_positive_number(request.form.get('odometer'), 'Odometer', max_value=9999999)
         if err:
             flash(err, 'error')
-            return render_template('fuel/new.html', vehicles=vehicles)
+            return render_fuel_form(vehicles=vehicles, selected_vehicle_id=vehicle_id)
 
         volume, err = validate_positive_number(request.form.get('volume'), 'Volume', max_value=10000)
         if err:
             flash(err, 'error')
-            return render_template('fuel/new.html', vehicles=vehicles)
+            return render_fuel_form(vehicles=vehicles, selected_vehicle_id=vehicle_id)
 
-        price_per_unit, err = validate_positive_number(request.form.get('price_per_unit'), 'Price per unit', max_value=1000)
+        price_per_unit, err = validate_positive_number(
+            request.form.get('price_per_unit'),
+            'Price per unit',
+            max_value=price_per_unit_max_for_user(current_user)
+        )
         if err:
             flash(err, 'error')
-            return render_template('fuel/new.html', vehicles=vehicles)
+            return render_fuel_form(vehicles=vehicles, selected_vehicle_id=vehicle_id)
 
-        total_cost, err = validate_positive_number(request.form.get('total_cost'), 'Total cost', max_value=100000)
+        total_cost, err = validate_positive_number(
+            request.form.get('total_cost'),
+            'Total cost',
+            max_value=total_cost_max_for_user(current_user)
+        )
         if err:
             flash(err, 'error')
-            return render_template('fuel/new.html', vehicles=vehicles)
+            return render_fuel_form(vehicles=vehicles, selected_vehicle_id=vehicle_id)
 
         log = FuelLog(
             vehicle_id=vehicle_id,
@@ -146,18 +192,7 @@ def new():
     # Pre-select vehicle: explicit param > default vehicle preference
     selected_vehicle_id = request.args.get('vehicle_id', type=int) or current_user.default_vehicle_id
 
-    # Get all fuel stations for dropdown (stations are system-wide)
-    stations = FuelStation.query.order_by(
-        FuelStation.is_favorite.desc(),
-        FuelStation.times_used.desc()
-    ).all()
-
-    return render_template('fuel/form.html',
-                           log=None,
-                           vehicles=vehicles,
-                           stations=stations,
-                           fuel_types=FUEL_TYPES,
-                           selected_vehicle_id=selected_vehicle_id)
+    return render_fuel_form(vehicles=vehicles, selected_vehicle_id=selected_vehicle_id)
 
 
 @bp.route('/<int:log_id>/edit', methods=['GET', 'POST'])
@@ -252,18 +287,7 @@ def edit(log_id):
         flash(_('Fuel log updated successfully'), 'success')
         return redirect(url_for('vehicles.view', vehicle_id=log.vehicle_id))
 
-    # Get all fuel stations for dropdown (stations are system-wide)
-    stations = FuelStation.query.order_by(
-        FuelStation.is_favorite.desc(),
-        FuelStation.times_used.desc()
-    ).all()
-
-    return render_template('fuel/form.html',
-                           log=log,
-                           vehicles=vehicles,
-                           stations=stations,
-                           fuel_types=FUEL_TYPES,
-                           selected_vehicle_id=log.vehicle_id)
+    return render_fuel_form(log=log, vehicles=vehicles, selected_vehicle_id=log.vehicle_id)
 
 
 @bp.route('/<int:log_id>/delete', methods=['POST'])

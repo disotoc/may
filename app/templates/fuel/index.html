@@ -50,7 +50,7 @@
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 ml-1">Missed</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ "%.2f"|format(log.total_cost or 0) }} {{ current_user.currency }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ (log.total_cost or 0)|format_currency }} {{ current_user.currency }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {% set consumption = log.get_consumption(current_user.consumption_unit, current_user.volume_unit) %}
                         {% if consumption %}{{ "%.1f"|format(consumption) }} {{ current_user.consumption_unit }}{% else %}-{% endif %}
@@ -132,7 +132,7 @@
                         {% if session.kwh_added %}{{ "%.1f"|format(session.kwh_added) }} kWh{% else %}-{% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {% if session.total_cost %}{{ "%.2f"|format(session.total_cost) }} {{ current_user.currency }}{% else %}-{% endif %}
+                        {% if session.total_cost %}{{ session.total_cost|format_currency }} {{ current_user.currency }}{% else %}-{% endif %}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ session.location or '-' }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

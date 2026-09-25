@@ -37,7 +37,7 @@
                 <p class="text-sm font-medium text-gray-900 dark:text-white">{{ price.date|format_date }}</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400 capitalize">{{ price.fuel_type }}</p>
             </div>
-            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ "%.3f"|format(price.price_per_unit) }} {{ current_user.currency }}/{{ current_user.volume_unit }}</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ price.price_per_unit|format_currency }} {{ current_user.currency }}/{{ current_user.volume_unit }}</p>
         </li>
         {% endfor %}
     </ul>

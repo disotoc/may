@@ -41,7 +41,7 @@
                 <div class="ml-4 flex items-center gap-4">
                     <div class="text-right">
                         <p class="text-lg font-semibold {% if loop.index == 1 %}text-green-600 dark:text-green-400{% else %}text-gray-900 dark:text-white{% endif %}">
-                            {{ "%.3f"|format(price.price_per_unit) }} {{ current_user.currency }}
+                            {{ price.price_per_unit|format_currency }} {{ current_user.currency }}
                         </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             {{ price.date|format_date('short') }}

@@ -6,12 +6,18 @@ from flask_babel import lazy_gettext as _l
 from app import db
 
 # Currency symbols for display in UI
+TWO_DECIMAL_CURRENCIES = {
+    'AUD', 'BRL', 'CAD', 'CHF', 'DKK', 'EUR', 'GBP', 'INR', 'MXN', 'NOK',
+    'NZD', 'PLN', 'SEK', 'USD', 'ZAR',
+}
+
 CURRENCY_SYMBOLS = {
     'USD': '$',
     'EUR': '\u20ac',
     'GBP': '\u00a3',
     'AUD': '$',
     'CAD': '$',
+    'CLP': '$',
     'INR': '\u20b9',
     'JPY': '\u00a5',
     'CHF': 'Fr',
@@ -31,6 +37,22 @@ def get_currency_symbol(currency_code):
         return ''
     code = currency_code.strip().upper()
     return CURRENCY_SYMBOLS.get(code, currency_code)
+
+
+def get_currency_decimal_places(currency_code):
+    if not currency_code:
+        return 2
+    code = currency_code.strip().upper()
+    if code in TWO_DECIMAL_CURRENCIES:
+        return 2
+    return 0
+
+
+def format_currency_amount(value, currency_code):
+    if value is None:
+        return '-'
+    decimals = get_currency_decimal_places(currency_code)
+    return f'{float(value):.{decimals}f}'
 
 
 # Association table for vehicle sharing
@@ -65,6 +87,9 @@ class User(UserMixin, db.Model):
     notification_method = db.Column(db.String(20), default='email')  # email, webhook, ntfy, pushover, none
     webhook_url = db.Column(db.String(500))  # URL to POST notifications to
     ntfy_topic = db.Column(db.String(200))  # ntfy.sh topic or custom server URL
+    ntfy_username = db.Column(db.String(100))  # Optional ntfy basic auth username
+    ntfy_password = db.Column(db.String(200))  # Optional ntfy basic auth password
+    ntfy_token = db.Column(db.String(500))  # Optional ntfy bearer token
     pushover_user_key = db.Column(db.String(50))  # Pushover user key
 
     # Password reset

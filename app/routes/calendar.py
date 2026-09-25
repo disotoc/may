@@ -184,8 +184,11 @@ def calendar_feed(user):
             summary = f"💰 {item.name} - {vehicle_name}"
             description = f"Recurring expense due for {vehicle_name}"
             if item.amount:
+                from app.models import format_currency_amount
                 currency = vehicle.currency_symbol if vehicle else '£'
-                description += f"\\nAmount: {currency}{item.amount:.2f}"
+                user_currency = vehicle.owner.currency if vehicle and vehicle.owner else None
+                amount = format_currency_amount(item.amount, user_currency)
+                description += f"\\nAmount: {currency}{amount}"
             if item.description:
                 description += f"\\nNotes: {item.description}"
 

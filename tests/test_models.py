@@ -6,7 +6,7 @@ from app import db
 from app.models import (
     User, Vehicle, FuelLog, Expense, Reminder, MaintenanceSchedule,
     RecurringExpense, FuelStation, FuelPriceHistory, Trip, ChargingSession,
-    AppSettings,
+    AppSettings, format_currency_amount, get_currency_decimal_places,
     FUEL_TYPES, EXPENSE_CATEGORIES, VEHICLE_TYPES, ODOMETER_UNITS,
     REMINDER_TYPES, RECURRENCE_OPTIONS, TRIP_PURPOSES, CHARGER_TYPES,
     MAINTENANCE_TYPES, TRACKING_UNITS, VEHICLE_SPEC_TYPES,
@@ -31,6 +31,20 @@ class TestUserPassword:
         test_user.set_password('NewPass456!')
         assert test_user.check_password('NewPass456!') is True
         assert test_user.check_password('TestPass123!') is False
+
+
+class TestCurrencyFormatting:
+    def test_standard_currency_uses_two_decimals(self):
+        assert get_currency_decimal_places('GBP') == 2
+        assert format_currency_amount(1234, 'GBP') == '1234.00'
+
+    def test_clp_uses_no_decimals(self):
+        assert get_currency_decimal_places('CLP') == 0
+        assert format_currency_amount(1554.49, 'CLP') == '1554'
+
+    def test_custom_currency_uses_no_decimals(self):
+        assert get_currency_decimal_places('$') == 0
+        assert format_currency_amount(124320.0, '$') == '124320'
 
 
 class TestUserApiKey:

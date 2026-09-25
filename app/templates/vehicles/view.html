@@ -73,20 +73,20 @@
     {% if vehicle.uses_fuel() %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('Total Fuel Cost') }}</dt>
-        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ "%.2f"|format(stats.total_fuel_cost) }}</dd>
+        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ stats.total_fuel_cost|format_currency }}</dd>
         <dd class="text-sm text-gray-500 dark:text-gray-400">{{ current_user.currency }}</dd>
     </div>
     {% endif %}
     {% if vehicle.uses_charging() %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('Total Charging Cost') }}</dt>
-        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ "%.2f"|format(stats.total_charging_cost) }}</dd>
+        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ stats.total_charging_cost|format_currency }}</dd>
         <dd class="text-sm text-gray-500 dark:text-gray-400">{{ current_user.currency }}</dd>
     </div>
     {% endif %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('Other Expenses') }}</dt>
-        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ "%.2f"|format(stats.total_expense_cost) }}</dd>
+        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ stats.total_expense_cost|format_currency }}</dd>
         <dd class="text-sm text-gray-500 dark:text-gray-400">{{ current_user.currency }}</dd>
     </div>
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -110,7 +110,7 @@
     {% endif %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ _('Cost per') }} {{ vehicle.get_effective_odometer_unit() }}</dt>
-        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{% if stats.cost_per_distance %}{{ "%.2f"|format(stats.cost_per_distance) }}{% else %}-{% endif %}</dd>
+        <dd class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{% if stats.cost_per_distance %}{{ stats.cost_per_distance|format_currency }}{% else %}-{% endif %}</dd>
         <dd class="text-sm text-gray-500 dark:text-gray-400">{{ current_user.currency }}</dd>
     </div>
 </div>
@@ -744,7 +744,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="text-right">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ "%.2f"|format(log.total_cost or 0) }} {{ current_user.currency }}</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ (log.total_cost or 0)|format_currency }} {{ current_user.currency }}</p>
                             {% set consumption = log.get_consumption(current_user.consumption_unit, current_user.volume_unit) %}
                             {% if consumption %}
                             <p class="text-sm text-gray-500 dark:text-gray-400">{{ "%.1f"|format(consumption) }} {{ current_user.consumption_unit }}</p>
@@ -793,7 +793,7 @@
                         </p>
                     </div>
                     <div class="flex items-center gap-3 ml-4">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ "%.2f"|format(expense.cost) }} {{ current_user.currency }}</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ expense.cost|format_currency }} {{ current_user.currency }}</p>
                         <div class="flex items-center gap-1">
                             <a href="{{ url_for('expenses.edit', expense_id=expense.id) }}" class="p-1.5 text-gray-400 hover:text-primary-600 rounded hover:bg-gray-100 dark:hover:bg-gray-600" title="Edit">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

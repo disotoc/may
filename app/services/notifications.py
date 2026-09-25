@@ -1,4 +1,5 @@
 """Notification service for sending reminders via various methods."""
+import base64
 import smtplib
 import json
 from email.mime.text import MIMEText
@@ -84,7 +85,7 @@ class NotificationService:
             return False, str(e)
 
     @staticmethod
-    def send_ntfy(topic, title, message, priority='default'):
+    def send_ntfy(topic, title, message, priority='default', username=None, password=None, token=None):
         """Send a notification via ntfy.sh or self-hosted ntfy server."""
         if not topic:
             return False, "ntfy topic not configured"
@@ -97,11 +98,18 @@ class NotificationService:
                 url = f"https://ntfy.sh/{topic}"
 
             data = message.encode('utf-8')
-            req = Request(url, data=data, headers={
+            headers = {
                 'Title': title,
                 'Priority': priority,
                 'Tags': 'car',
-            })
+            }
+            if token:
+                headers['Authorization'] = f'Bearer {token}'
+            elif username and password:
+                credentials = f'{username}:{password}'.encode('utf-8')
+                headers['Authorization'] = f'Basic {base64.b64encode(credentials).decode("ascii")}'
+
+            req = Request(url, data=data, headers=headers)
             with urlopen(req, timeout=10) as response:
                 return True, None
         except HTTPError as e:
@@ -192,7 +200,14 @@ class NotificationService:
             return NotificationService.send_webhook(user.webhook_url, payload)
 
         elif method == 'ntfy':
-            return NotificationService.send_ntfy(user.ntfy_topic, title, message)
+            return NotificationService.send_ntfy(
+                user.ntfy_topic,
+                title,
+                message,
+                username=user.ntfy_username,
+                password=user.ntfy_password,
+                token=user.ntfy_token,
+            )
 
         elif method == 'pushover':
             return NotificationService.send_pushover(user.pushover_user_key, title, message)

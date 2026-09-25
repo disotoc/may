@@ -48,6 +48,84 @@ class TestFuelNew:
         assert log.volume == 45.0
         assert log.user_id == test_user.id
 
+    def test_invalid_numeric_value_rerenders_form(self, auth_client, sample_vehicle):
+        resp = auth_client.post('/fuel/new', data={
+            'vehicle_id': str(sample_vehicle.id),
+            'date': '2024-03-01',
+            'odometer': '15000',
+            'volume': '45.0',
+            'price_per_unit': '1.60',
+            'total_cost': '-1',
+            'is_full_tank': 'on',
+        })
+
+        assert resp.status_code == 200
+        assert b'Add Fuel Log' in resp.data
+        assert b'Total cost cannot be negative' in resp.data
+
+    def test_create_fuel_log_allows_clp_price_per_unit(
+            self, auth_client, sample_vehicle, test_user):
+        test_user.currency = 'CLP'
+        db.session.commit()
+
+        resp = auth_client.post('/fuel/new', data={
+            'vehicle_id': str(sample_vehicle.id),
+            'date': '2024-03-01',
+            'odometer': '15000',
+            'volume': '80.0',
+            'price_per_unit': '1554',
+            'total_cost': '124320',
+            'is_full_tank': 'on',
+        }, follow_redirects=True)
+
+        assert resp.status_code == 200
+        log = FuelLog.query.filter_by(
+            vehicle_id=sample_vehicle.id,
+            odometer=15000.0
+        ).first()
+        assert log is not None
+        assert log.price_per_unit == 1554.0
+        assert log.total_cost == 124320.0
+
+    def test_create_fuel_log_allows_custom_currency_price_per_unit(
+            self, auth_client, sample_vehicle, test_user):
+        test_user.currency = '$'
+        db.session.commit()
+
+        resp = auth_client.post('/fuel/new', data={
+            'vehicle_id': str(sample_vehicle.id),
+            'date': '2024-03-01',
+            'odometer': '15000',
+            'volume': '80.0',
+            'price_per_unit': '1554',
+            'total_cost': '124320',
+            'is_full_tank': 'on',
+        }, follow_redirects=True)
+
+        assert resp.status_code == 200
+        log = FuelLog.query.filter_by(
+            vehicle_id=sample_vehicle.id,
+            odometer=15000.0
+        ).first()
+        assert log is not None
+        assert log.price_per_unit == 1554.0
+        assert log.total_cost == 124320.0
+
+    def test_high_price_per_unit_still_rejected_for_default_currency(
+            self, auth_client, sample_vehicle):
+        resp = auth_client.post('/fuel/new', data={
+            'vehicle_id': str(sample_vehicle.id),
+            'date': '2024-03-01',
+            'odometer': '15000',
+            'volume': '45.0',
+            'price_per_unit': '1554',
+            'total_cost': '69930',
+            'is_full_tank': 'on',
+        })
+
+        assert resp.status_code == 200
+        assert b'Price per unit cannot exceed 1000' in resp.data
+
     def test_new_redirects_to_vehicles_if_none(self, auth_client):
         # No vehicles exist for this user
         resp = auth_client.get('/fuel/new', follow_redirects=False)
